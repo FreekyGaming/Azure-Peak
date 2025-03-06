@@ -1605,6 +1605,68 @@
 				break
 	return TRUE
 
+/obj/effect/proc_holder/spell/invoked/mindlink
+	name = "Mindlink"
+	desc = "Establish a telepathic link with an ally for one minute. Use ,y before a message to communicate telepathically."
+	clothes_req = FALSE
+	overlay_state = "mindlink"
+	associated_skill = /datum/skill/magic/arcane
+	cost = 2
+	xp_gain = TRUE
+	charge_max = 2 MINUTES
+	invocation = "MENTIS NEXUS!"
+	invocation_type = "whisper"
+	
+	// Charged spell variables
+	chargedloop = /datum/looping_sound/invokegen
+	chargedrain = 1
+	chargetime = 20
+	releasedrain = 25
+	no_early_release = TRUE
+	movement_interrupt = FALSE
+	charging_slowdown = 2
+	warnie = "spellwarning"
+
+/obj/effect/proc_holder/spell/invoked/mindlink/cast(list/targets, mob/living/user)
+	. = ..()
+	if(!istype(user))
+		return
+	
+	var/list/possible_targets = list()
+	for(var/mob/living/L in GLOB.player_list)
+		if(L.client && (L in user.mind?.known_people || L == user))
+			possible_targets += L
+
+	if(!length(possible_targets))
+		to_chat(user, span_warning("You have no known people to establish a mindlink with!"))
+		return FALSE
+
+	var/mob/living/target = input(user, "Choose someone to establish a mindlink with", "Mindlink") as null|anything in possible_targets
+	if(!target)
+		return FALSE
+
+	user.visible_message(span_notice("[user] touches their temples and concentrates..."), span_notice("I establish a mental connection with [target]..."))
+	
+	// Create the mindlink
+	var/datum/mindlink/link = new(user, target)
+	GLOB.mindlinks += link
+	
+	to_chat(user, span_notice("Mindlink established with [target]! Use ,y before a message to communicate telepathically."))
+	to_chat(target, span_notice("[user] has established a mindlink with you! Use ,y before a message to communicate telepathically."))
+	
+	addtimer(CALLBACK(src, PROC_REF(break_link), link), 1 MINUTES)
+	return TRUE
+
+/obj/effect/proc_holder/spell/invoked/mindlink/proc/break_link(datum/mindlink/link)
+	if(!link)
+		return
+	
+	to_chat(link.owner, span_warning("The mindlink with [link.target] fades away..."))
+	to_chat(link.target, span_warning("The mindlink with [link.owner] fades away..."))
+	
+	GLOB.mindlinks -= link
+	qdel(link)
+
 
 
 
